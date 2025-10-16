@@ -296,10 +296,13 @@ function updateLayout() {
   // 空行を整理
   layoutContent = layoutContent.replace(/\n\n\n+/g, '\n\n');
   
-  // className から geist 変数を削除
-  layoutContent = layoutContent.replace(/className=\{`\$\{geist[^}]+\}\s*antialiased`\}/g, 'className="antialiased"');
-  layoutContent = layoutContent.replace(/className=\{`antialiased\s*\$\{geist[^}]+\}`\}/g, 'className="antialiased"');
-  layoutContent = layoutContent.replace(/className=\{`\$\{geist[^\}]+\}\s*\$\{geist[^\}]+\}\s*antialiased`\}/g, 'className="antialiased"');
+  // className から geist 変数を削除し、font-body クラスを追加
+  layoutContent = layoutContent.replace(/className=\{`\$\{geist[^}]+\}\s*antialiased`\}/g, 'className="antialiased font-body"');
+  layoutContent = layoutContent.replace(/className=\{`antialiased\s*\$\{geist[^}]+\}`\}/g, 'className="antialiased font-body"');
+  layoutContent = layoutContent.replace(/className=\{`\$\{geist[^\}]+\}\s*\$\{geist[^\}]+\}\s*antialiased`\}/g, 'className="antialiased font-body"');
+  
+  // 既に font-body がない antialiased のみの場合も追加
+  layoutContent = layoutContent.replace(/className="antialiased"(?![\s\S]*font-body)/g, 'className="antialiased font-body"');
   
   // フォントCSSのimportを追加（既に存在しない場合）
   if (!layoutContent.includes('../lib/fonts/_active.css')) {
