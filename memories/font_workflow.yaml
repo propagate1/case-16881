@@ -160,7 +160,7 @@ workflow:
       
       kawaii:
         prompt: |
-          かわいいフォントですね！
+かわいいフォントですね！
           まず、見出し用フォントを選んでください：
           
           1. zen-maru: Zen Maru Gothic（丸ゴシック）- やわらかい印象
