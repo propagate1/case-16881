@@ -109,6 +109,54 @@ domain_config:
   # 1. APEX_DOMAIN を購入したドメインに変更（例: "example.com"）
   # 2. WWW_DOMAIN を正規URLに変更（例: "www.example.com"）
   # 3. wwwなしを正規とする場合は、APEX_DOMAINとWWW_DOMAINを入れ替える
+  
+  # ドメイン正規化ルール（🚨 CRITICAL）
+  normalization_rules:
+    priority: CRITICAL
+    enforcement: MANDATORY
+    
+    rules:
+      - name: "小文字化"
+        action: "APEX_DOMAIN と WWW_DOMAIN を全て小文字に変換"
+        example: "Example.JP → example.jp"
+        reason: "大文字混入の事故を防止"
+      
+      - name: "IDN正規化"
+        action: "日本語ドメイン等はPunycodeに変換"
+        example: "日本語.jp → xn--wgv71a119e.jp"
+        reason: "国際化ドメインの事故を防止"
+        note: "has: [{ type: host, value: ... }] に使用する際は必ずPunycode"
+      
+      - name: "末尾スラッシュ除去"
+        action: "末尾の / を除去"
+        example: "example.jp/ → example.jp"
+        reason: "不要な文字を除去"
+      
+      - name: "プロトコル除去"
+        action: "先頭の http:// または https:// を除去"
+        example: "https://example.jp → example.jp"
+        reason: "ドメイン部分のみを使用"
+    
+    processing_order:
+      - "1. プロトコル除去（http(s)://）"
+      - "2. 末尾スラッシュ除去（/）"
+      - "3. 小文字化"
+      - "4. IDN正規化（必要な場合）"
+    
+    validation:
+      - "正規化後のドメインに http:// や https:// が含まれないこと"
+      - "正規化後のドメインに末尾 / が含まれないこと"
+      - "正規化後のドメインが全て小文字であること"
+      - "IDNの場合はPunycodeに変換されていること"
+    
+    example_normalization:
+      input:
+        APEX_DOMAIN: "HTTPS://Example.JP/"
+        WWW_DOMAIN: "WWW.Example.JP"
+      
+      output:
+        APEX_DOMAIN: "example.jp"
+        WWW_DOMAIN: "www.example.jp"
 
 # ------------------------------------------------------------------------------
 # 出力テンプレート（ここから下は原則いじらない）
@@ -215,6 +263,7 @@ output_rules:
       - "redirects 配列が存在すること"
       - "🚨 JSONルートには redirects キーのみ含める（headers, rewrites, env などは含めない）"
       - "🚨 重複する source を持つリダイレクトを含めない"
+      - "🚨 自己リダイレクトを含めない（destination が最終形の場合）"
     
     validation_details:
       root_keys:
@@ -225,6 +274,38 @@ output_rules:
       duplicate_sources:
         check: "各 redirects[].source が一意であること"
         reason: "重複は冗長で、意図しない動作の原因になる"
+      
+      self_redirect_prevention:
+        priority: CRITICAL
+        check: "destination が最終形（https://{WWW_DOMAIN}/:path*）の場合、同ホスト・同プロトコルへのリダイレクトを作らない"
+        
+        rules:
+          - "destination が https://{WWW_DOMAIN}/:path* の場合"
+          - "source が https://{WWW_DOMAIN}/* のパターンは作成禁止"
+          - "自己リダイレクトループを防止"
+        
+        allowed_patterns:
+          - "✅ http://{APEX_DOMAIN}/:path* → https://{WWW_DOMAIN}/:path*"
+          - "✅ https://{APEX_DOMAIN}/:path* → https://{WWW_DOMAIN}/:path*"
+          - "✅ http://{WWW_DOMAIN}/:path* → https://{WWW_DOMAIN}/:path*"
+        
+        forbidden_patterns:
+          - "❌ https://{WWW_DOMAIN}/:path* → https://{WWW_DOMAIN}/:path*（自己リダイレクト）"
+        
+        rationale: |
+          最終形（正規URL）である https://{WWW_DOMAIN} から
+          https://{WWW_DOMAIN} へのリダイレクトは、
+          リダイレクトループを引き起こす可能性があるため禁止。
+        
+        example_correct:
+          destination: "https://www.example.jp/:path*"
+          sources:
+            - "http://example.jp/:path*"      # ← OK（異なるプロトコル・ホスト）
+            - "https://example.jp/:path*"     # ← OK（異なるホスト）
+            - "http://www.example.jp/:path*"  # ← OK（異なるプロトコル）
+          
+          forbidden:
+            - "https://www.example.jp/:path*" # ← NG（同一プロトコル・ホスト）
   
   rule_5:
     name: "no-opチェック（オプショナル）"
@@ -321,21 +402,66 @@ workflow:
   # ============================================================================
   
   step_2:
-    name: "テンプレート選択とプレースホルダー置換"
+    name: "ドメイン正規化とテンプレート選択"
     status: MANDATORY
     skip_allowed: false
     
     action: |
-      1. output_templates.pattern_B（推奨）または pattern_A を選択
-      2. プレースホルダーを実際の値に置換
+      1. domain_config から APEX_DOMAIN と WWW_DOMAIN を読み込み
+      2. ドメイン正規化を実施（normalization_rules に従う）
+      3. output_templates.pattern_B（推奨）または pattern_A を選択
+      4. プレースホルダーを正規化後の値に置換
+    
+    # ドメイン正規化（🚨 CRITICAL - 必須）
+    domain_normalization:
+      priority: CRITICAL
+      enforcement: MANDATORY
+      
+      processing_steps:
+        - step: 1
+          action: "プロトコル除去"
+          pattern: "^https?://"
+          example: "https://example.jp → example.jp"
+        
+        - step: 2
+          action: "末尾スラッシュ除去"
+          pattern: "/$"
+          example: "example.jp/ → example.jp"
+        
+        - step: 3
+          action: "小文字化"
+          function: ".toLowerCase()"
+          example: "Example.JP → example.jp"
+        
+        - step: 4
+          action: "IDN正規化（該当する場合のみ）"
+          function: "Punycode変換"
+          example: "日本語.jp → xn--wgv71a119e.jp"
+          note: "日本語・中国語・韓国語などの非ASCII文字が含まれる場合のみ"
+      
+      validation_after_normalization:
+        - "正規化後のドメインに http:// や https:// が含まれないこと"
+        - "正規化後のドメインに末尾 / が含まれないこと"
+        - "正規化後のドメインが全て小文字であること（ASCII範囲）"
+        - "IDNの場合はPunycode（xn--）に変換されていること"
+      
+      example_normalization:
+        input:
+          APEX_DOMAIN: "HTTPS://Example.JP/"
+          WWW_DOMAIN: "WWW.Example.JP"
+        
+        output:
+          APEX_DOMAIN: "example.jp"
+          WWW_DOMAIN: "www.example.jp"
     
     placeholders:
-      "{APEX_DOMAIN}": "domain_config.APEX_DOMAIN の値（例: example.jp）"
-      "{WWW_DOMAIN}": "domain_config.WWW_DOMAIN の値（例: www.example.jp）"
+      "{APEX_DOMAIN}": "正規化後の domain_config.APEX_DOMAIN（例: example.jp）"
+      "{WWW_DOMAIN}": "正規化後の domain_config.WWW_DOMAIN（例: www.example.jp）"
     
     validation:
       - "APEX_DOMAIN と WWW_DOMAIN が空でないこと"
-      - "すべてのプレースホルダーが置換されていること"
+      - "ドメイン正規化が完了していること"
+      - "すべてのプレースホルダーが正規化後の値に置換されていること"
     
     next_step: "step_3"
   
@@ -388,22 +514,27 @@ workflow:
   # ============================================================================
   
   step_4:
-    name: "完了報告（2段目）"
+    name: "完了報告（2段目）+ SEO情報表示"
     status: MANDATORY
     skip_allowed: false
     
     action: |
       step_3でJSONを出力した後、改行を挟んで完了報告を出力する
+      可能であれば、現在のサイトのSEO情報も表示する（オプショナル）
     
     format: |
       [step_3のJSON出力]
       
       [空行]
       
-      [この完了報告]
+      [完了報告]
+      
+      [SEO情報（オプショナル）]
     
     response_template: |
       ✅ vercel.json の内容を出力しました！
+      
+      🎯 リダイレクトの目的: すべてのアクセスを https://{WWW_DOMAIN} に統一
       
       📋 次のステップ:
       1. 上記のJSONを vercel.json ファイルに保存
@@ -421,6 +552,328 @@ workflow:
     note: |
       必ずstep_3のJSON出力の後に続けて出力すること。
       JSONと完了報告の間には空行を1つ入れる。
+      step_5でSEO情報生成を行う場合は、その後に続ける。
+  
+  # ============================================================================
+  # STEP 5: SEO情報生成（3段目・オプショナル）
+  # ============================================================================
+  
+  step_5:
+    name: "SEO情報生成（3段目）"
+    status: HIGHLY_RECOMMENDED
+    skip_allowed: true
+    priority: "ドメイン接続時の納品物として強く推奨"
+    
+    trigger_condition: |
+      以下のいずれかが読み取れる場合に実行：
+      - 優先順位1: about.yaml（サイト構成シート）
+      - 優先順位2: page.tsx, components/*.tsx, layout.tsx
+      - 優先順位3: app/page.tsx の既存 metadata
+      
+      すべて読み取れない場合のみスキップ（エラーなし）
+    
+    rationale: |
+      - ドメイン接続時にSEO最適化された情報を提供することで、納品物の価値を高める
+      - クライアントに現状のSEO情報を提示し、SEO対策の重要性を認識してもらう
+      - 将来的なSEO対策ワークフローへの導線となる
+    
+    action: |
+      1. 情報源の優先順位に従ってファイルを読み込み
+      2. 抽出した情報を基に市場分析を行い
+      3. 最適化されたSEO情報（キーワード、タイトル、メタディスクリプション）を生成する
+    
+    input:
+      priority_1:
+        name: "about.yaml（サイト構成シート）"
+        location: "プロジェクトルート/about.yaml"
+        reason: "構造化されており、最も情報が豊富"
+      
+      ai_usage_rules: |
+        about.yaml の ai_usage セクションに従う：
+        - render_scope.include に "site" が含まれる場合のみ site セクションを使用
+        - render_scope.exclude に "project" が含まれる場合は project セクションを無視
+        - publish: true の要素のみ使用
+      
+      expected_structure: |
+        ai_usage:
+          render_scope:
+            include: ["site"]
+            exclude: ["project"]
+        
+        site:
+          name: "会社名（例：株式会社メディアプルーフ）"
+          purpose: "サイトの目的"
+          goals: ["集客", "信頼獲得", "案内性"]
+          tone: "B2B／シンプル／落ち着いた配色"
+          contact_defaults:
+            address: "住所（地域情報を抽出）"
+          pages:
+            - id: home
+              sections:
+                - heading: "メインメッセージ"
+                  content: "説明文"
+      
+      extraction_rules:
+        company_name: "site.name"
+        service_area: "site.contact_defaults.address から都道府県・市区を抽出"
+        main_message: "site.pages[0].sections[0].content.heading"
+        description: "site.pages[0].sections[0].content.text"
+        strengths: "site.pages[0].sections で type: bullets のもの"
+        services: "site.pages で id: business のもの"
+      
+      priority_2:
+        name: "page.tsx, components, layout.tsx（コードファイル）"
+        locations:
+          - "app/page.tsx"
+          - "app/components/*.tsx"
+          - "app/layout.tsx"
+        reason: "about.yamlがない場合のfallback"
+        
+        extraction_rules:
+          company_name:
+            sources:
+              - "layout.tsx の metadata.title"
+              - "page.tsx の h1, h2 タグ"
+              - "Header コンポーネントのロゴテキスト"
+            example: "株式会社メディアプルーフ"
+          
+          service_description:
+            sources:
+              - "page.tsx の hero セクションのテキスト"
+              - "metadata.description"
+              - "メインコンテンツの説明文"
+            example: "メディアの正しさを担保する校閲サービス"
+          
+          service_area:
+            sources:
+              - "Footer コンポーネントの住所"
+              - "Contact ページの住所"
+              - "metadata に含まれる地域情報"
+            extraction: "住所から都道府県・市区を抽出"
+            example: "東京都新宿区西新宿..." → "東京"
+          
+          services:
+            sources:
+              - "page.tsx のサービスカード"
+              - "Business ページのセクション"
+              - "Navigation メニューの項目"
+            example: ["校閲サービス", "ニュース番組", "広告制作"]
+          
+          strengths:
+            sources:
+              - "page.tsx の「選ばれる理由」セクション"
+              - "「強み」「特徴」などの見出しのコンテンツ"
+              - "メインメッセージ"
+            example: ["高度な校閲", "ウラ取り対応", "修正案提示"]
+        
+        code_extraction_example: |
+          page.tsx からの抽出例：
+          
+          // page.tsx
+          export default function Home() {
+            return (
+              <main>
+                <section className="hero">
+                  <h1>株式会社メディアプルーフ</h1>
+                  <p>メディアの正しさを、最後の一手で担保する</p>
+                  <p>ニュース・広告・公共案件の校閲に特化</p>
+                </section>
+                
+                <section className="services">
+                  <h2>サービス</h2>
+                  <div>ニュース番組</div>
+                  <div>広告制作物</div>
+                  <div>公共案件</div>
+                </section>
+                
+                <footer>
+                  <p>東京都新宿区西新宿3‐3‐13</p>
+                </footer>
+              </main>
+            );
+          }
+          
+          抽出結果：
+          - company_name: "株式会社メディアプルーフ"
+          - main_message: "メディアの正しさを、最後の一手で担保する"
+          - service_description: "ニュース・広告・公共案件の校閲に特化"
+          - services: ["ニュース番組", "広告制作物", "公共案件"]
+          - service_area: "東京都新宿区..." → "東京"
+      
+      priority_3:
+        name: "既存 metadata（最小限のfallback）"
+        locations:
+          - "app/layout.tsx の metadata"
+          - "app/page.tsx の metadata"
+        reason: "最後の手段として既存のSEO情報を読み取り、改善提案を行う"
+        
+        extraction_rules:
+          existing_title: "metadata.title"
+          existing_description: "metadata.description"
+          existing_keywords: "metadata.keywords（存在する場合）"
+        
+        action: |
+          既存のmetadataを読み取り、
+          - 文字数が適切か確認（title: 28-32字、description: 90-120字）
+          - キーワードが含まれているか確認
+          - 改善提案を生成
+      
+      fallback_strategy: |
+        優先順位1（about.yaml）→ 優先順位2（コードファイル）→ 優先順位3（既存metadata）
+        の順で試行し、最初に読み取れた情報源を使用する。
+        
+        すべて読み取れない場合のみ、step_5 をスキップする。
+    
+    # 市場分析ルール
+    market_analysis:
+      steps:
+        - name: "上位10サイト想定分析"
+          action: "頻出語・利用者ペルソナを要約"
+        
+        - name: "検索ボリューム推定"
+          action: "各キーワードの検索ボリュームを推定"
+        
+        - name: "競合難易度評価"
+          action: "Low/Mid/High で評価"
+        
+        - name: "一次キーワード選定"
+          action: "5語を選定"
+    
+    # キーワード生成ルール
+    keyword_generation:
+      count: 5
+      format: "一次キーワード"
+      output_with:
+        - "検索ボリューム推定"
+        - "競合難易度（Low/Mid/High）"
+      
+      example: |
+        1. 不動産DX（検索ボリューム: 中、競合: Mid）
+        2. 物件管理システム（検索ボリューム: 高、競合: High）
+        3. 不動産テック 東京（検索ボリューム: 中、競合: Mid）
+        4. 仲介会社 データベース（検索ボリューム: 低、競合: Low）
+        5. 不動産 IT企業（検索ボリューム: 中、競合: Mid）
+    
+    # タイトルタグ生成ルール
+    title_tag_rules:
+      required_elements:
+        - "会社名またはサービス名（about.yaml から）"
+        - "主要地域（about.yaml から）"
+        - "一次キーワード（生成したもの）"
+        - "CTA動詞 or ベネフィット（例：｜24時間受付）"
+      
+      length:
+        min: 28
+        max: 32
+        unit: "全角字"
+        pixel_limit: 600
+      
+      format_example: "会社名 - サービス名 エリア | 一次KW | ベネフィット"
+      
+      rules:
+        - "数字は半角、単位は全角（例：24時間、365日）"
+        - "同一語句の連続は2回まで"
+        - "句読点は「、」「。」を使用"
+        - "英字間は半角スペース"
+    
+    # メタディスクリプション生成ルール
+    meta_description_rules:
+      keyword_usage:
+        primary: "一次KWを2-3回自然に含める"
+        secondary: "二次KWを1-2回含める"
+      
+      length:
+        min: 90
+        max: 120
+        recommended: 110
+        unit: "全角字"
+        pixel_range: "550-680px"
+        note: "途中で「…」が入らないよう110字前後推奨"
+      
+      structure:
+        - "ベネフィット（会社の強み・特徴）"
+        - "行動喚起（電話・フォーム）"
+      
+      rules:
+        - "数字は半角、単位は全角（例：24時間、365日）"
+        - "ネガティブ語は使用しない（例：孤独死など）"
+        - "同一語句の連続は2回まで"
+        - "句読点は「、」「。」を使用"
+        - "英字間は半角スペース"
+    
+    # 出力フォーマット
+    output_template: |
+      
+      📊 生成したSEO情報:
+      
+      【検索キーワード（5語）】
+      1. {keyword1}（検索ボリューム: {volume}, 競合: {difficulty}）
+      2. {keyword2}（検索ボリューム: {volume}, 競合: {difficulty}）
+      3. {keyword3}（検索ボリューム: {volume}, 競合: {difficulty}）
+      4. {keyword4}（検索ボリューム: {volume}, 競合: {difficulty}）
+      5. {keyword5}（検索ボリューム: {volume}, 競合: {difficulty}）
+      
+      【タイトルタグ】
+      {title}（{文字数} 文字）
+      
+      【メタディスクリプション】
+      {description}（{文字数} 文字）
+      
+      【実装方法】
+      app/layout.tsx の metadata オブジェクトに以下を追加：
+      
+      export const metadata: Metadata = {
+        title: "{title}",
+        description: "{description}",
+        keywords: ["{keyword1}", "{keyword2}", "{keyword3}", "{keyword4}", "{keyword5}"],
+      }
+      
+      ⚠️ 注意: keywords メタタグは廃止されましたが、記録として残しています。
+    
+    example_output: |
+      
+      📊 生成したSEO情報:
+      
+      【検索キーワード（5語）】
+      1. 校閲サービス 東京（検索ボリューム: 中、競合: Mid）
+      2. ニュース番組 校閲（検索ボリューム: 低、競合: Low）
+      3. メディア 校正（検索ボリューム: 高、競合: High）
+      4. 広告制作 校閲（検索ボリューム: 中、競合: Mid）
+      5. 公共案件 校閲（検索ボリューム: 低、競合: Low）
+      
+      【タイトルタグ】
+      株式会社メディアプルーフ - 東京の校閲サービス | メディアの正しさを担保（32 文字）
+      
+      【メタディスクリプション】
+      株式会社メディアプルーフは、ニュース番組・広告・公共案件の校閲に特化したサービスを提供。誤字脱字のチェックに留まらず、ウラ取り・修正案の提示まで対応。東京都新宿区を拠点に、高度な校閲で制作物の品質と信頼を守ります。お気軽にお問い合わせください。（120 文字）
+      
+      【実装方法】
+      app/layout.tsx の metadata オブジェクトに以下を追加：
+      
+      export const metadata: Metadata = {
+        title: "株式会社メディアプルーフ - 東京の校閲サービス | メディアの正しさを担保",
+        description: "株式会社メディアプルーフは、ニュース番組・広告・公共案件の校閲に特化したサービスを提供。誤字脱字のチェックに留まらず、ウラ取り・修正案の提示まで対応。東京都新宿区を拠点に、高度な校閲で制作物の品質と信頼を守ります。お気軽にお問い合わせください。",
+        keywords: ["校閲サービス 東京", "ニュース番組 校閲", "メディア 校正", "広告制作 校閲", "公共案件 校閲"],
+      }
+      
+      ⚠️ 注意: keywords メタタグは廃止されましたが、記録として残しています。
+    
+    execution_flow: |
+      1. about.yaml が読める → about.yaml から情報抽出
+      2. about.yaml がない → page.tsx, components, layout.tsx から情報抽出
+      3. コードも読めない → 既存 metadata から情報抽出・改善提案
+      4. すべて読めない → このステップをスキップ（エラーなし）
+    
+    if_no_source_available: |
+      すべての情報源（about.yaml, コードファイル, metadata）が読み取れない場合：
+      - step_5 をスキップ
+      - エラーは出さず、step_4の完了報告で終了
+      - 「SEO情報を生成できませんでした」などのメッセージも不要
+    
+    note: |
+      このステップはオプショナルですが、強く推奨されます。
+      優先順位に従って情報源を試行し、納品物として最適化されたSEO情報を提供します。
+      将来的にSEO対策ワークフローと統合する可能性があります。
 
 # ==============================================================================
 # 使用例
@@ -454,16 +907,120 @@ usage_examples:
       
       ✅ vercel.json の内容を出力しました！
       
+      🎯 リダイレクトの目的: すべてのアクセスを https://www.example.jp に統一
+      
       📋 次のステップ:
       1. 上記のJSONを vercel.json ファイルに保存
-      2. Vercel にデプロイ...
+      2. Vercel にデプロイ（git push または vercel deploy）
+      3. Vercel のダッシュボードでカスタムドメインを登録
+      4. DNS設定（Aレコード/CNAMEレコード）
+      5. https://example.jp と https://www.example.jp でアクセス確認
+      
+      💡 リダイレクト設定:
+      - http://example.jp → https://www.example.jp
+      - https://example.jp → https://www.example.jp
+      - http://www.example.jp → https://www.example.jp
+      - *.vercel.app は影響を受けません
+      
+      📊 生成したSEO情報:
+      
+      【検索キーワード（5語）】
+      1. 校閲サービス 東京（検索ボリューム: 中、競合: Mid）
+      2. ニュース番組 校閲（検索ボリューム: 低、競合: Low）
+      3. メディア 校正（検索ボリューム: 高、競合: High）
+      4. 広告制作 校閲（検索ボリューム: 中、競合: Mid）
+      5. 公共案件 校閲（検索ボリューム: 低、競合: Low）
+      
+      【タイトルタグ】
+      株式会社メディアプルーフ - 東京の校閲サービス | メディアの正しさを担保（32 文字）
+      
+      【メタディスクリプション】
+      株式会社メディアプルーフは、ニュース番組・広告・公共案件の校閲に特化したサービスを提供。誤字脱字のチェックに留まらず、ウラ取り・修正案の提示まで対応。東京都新宿区を拠点に、高度な校閲で制作物の品質と信頼を守ります。お気軽にお問い合わせください。（120 文字）
+      
+      【実装方法】
+      app/layout.tsx の metadata オブジェクトに以下を追加：
+      
+      export const metadata: Metadata = {
+        title: "株式会社メディアプルーフ - 東京の校閲サービス | メディアの正しさを担保",
+        description: "株式会社メディアプルーフは、ニュース番組・広告・公共案件の校閲に特化したサービスを提供。誤字脱字のチェックに留まらず、ウラ取り・修正案の提示まで対応。東京都新宿区を拠点に、高度な校閲で制作物の品質と信頼を守ります。お気軽にお問い合わせください。",
+        keywords: ["校閲サービス 東京", "ニュース番組 校閲", "メディア 校正", "広告制作 校閲", "公共案件 校閲"],
+      }
+      
+      ⚠️ 注意: keywords メタタグは廃止されましたが、記録として残しています。
     
     notes: |
-      - JSONが先に出力される
-      - その後、完了報告が続く
+      - JSONが先に出力される（1段目）
+      - その後、完了報告が続く（2段目）
+      - SEO情報は情報源の優先順位に従って生成（3段目・オプショナル）
       - コードブロック（```）は使用しない
   
   example_2:
+    user_input: "ドメイン接続のvercel.jsonを作成して"
+    context: "about.yamlがないプロジェクト"
+    domain_config:
+      APEX_DOMAIN: "example.jp"
+      WWW_DOMAIN: "www.example.jp"
+    
+    expected_behavior: |
+      1. about.yaml を探す → 見つからない
+      2. page.tsx, components, layout.tsx を読み込む
+      3. コードから情報を抽出：
+         - company_name: layout.tsx の metadata.title から抽出
+         - service_description: page.tsx の hero セクションから抽出
+         - service_area: Footer コンポーネントの住所から抽出
+         - services: Navigation メニューから抽出
+      4. 市場分析を行い、SEO情報を生成
+      5. 通常通り3段出力
+    
+    expected_output: |
+      {
+        "redirects": [
+          {
+            "source": "/:path*",
+            "has": [{ "type": "host", "value": "example.jp" }],
+            "destination": "https://www.example.jp/:path*",
+            "permanent": true
+          },
+          {
+            "source": "/:path*",
+            "has": [{ "type": "host", "value": "www.example.jp" }],
+            "destination": "https://www.example.jp/:path*",
+            "permanent": true
+          }
+        ]
+      }
+      
+      ✅ vercel.json の内容を出力しました！
+      
+      🎯 リダイレクトの目的: すべてのアクセスを https://www.example.jp に統一
+      
+      📋 次のステップ:
+      1. 上記のJSONを vercel.json ファイルに保存
+      2. Vercel にデプロイ...
+      
+      📊 生成したSEO情報:
+      （※ page.tsx と components から抽出した情報を基に生成）
+      
+      【検索キーワード（5語）】
+      1. 校閲サービス 東京（検索ボリューム: 中、競合: Mid）
+      2. ニュース番組 校閲（検索ボリューム: 低、競合: Low）
+      ...
+      
+      【タイトルタグ】
+      株式会社メディアプルーフ - 東京の校閲サービス | メディアの正しさを担保（32 文字）
+      
+      【メタディスクリプション】
+      ...（110 文字）
+      
+      【実装方法】
+      app/layout.tsx の metadata オブジェクトに以下を追加：
+      ...
+    
+    note: |
+      about.yamlがなくても、コードから情報を抽出してSEO情報を生成できる。
+      優先順位2のfallbackが機能する例。
+  
+  example_3:
     user_input: "ドメイン接続は必要ですか？"
     expected_behavior: |
       ワークフローを実行せず、質問に回答する
@@ -525,6 +1082,65 @@ usage_examples:
       problem: "重複する source を持つリダイレクトが存在する"
       severity: "HIGH"
       note: "各 source は一意であること"
+    
+    violation_7:
+      wrong_output: |
+        {
+          "redirects": [
+            {
+              "source": "/:path*",
+              "has": [{ "type": "host", "value": "Example.JP" }],
+              ...
+            }
+          ]
+        }
+      problem: "ドメインが正規化されていない（大文字が含まれている）"
+      severity: "CRITICAL"
+      note: "必ず小文字化してから使用すること"
+      correct: "example.jp"
+    
+    violation_8:
+      wrong_output: |
+        {
+          "redirects": [
+            {
+              "source": "/:path*",
+              "has": [{ "type": "host", "value": "日本語.jp" }],
+              ...
+            }
+          ]
+        }
+      problem: "IDN（日本語ドメイン）が正規化されていない"
+      severity: "CRITICAL"
+      note: "必ずPunycodeに変換してから使用すること"
+      correct: "xn--wgv71a119e.jp"
+    
+    violation_9:
+      wrong_output: |
+        {
+          "redirects": [
+            {
+              "source": "/:path*",
+              "has": [{ "type": "host", "value": "https://example.jp" }],
+              ...
+            }
+          ]
+        }
+      problem: "ドメインにプロトコル（https://）が含まれている"
+      severity: "CRITICAL"
+      note: "ドメイン部分のみを使用すること"
+      correct: "example.jp"
+    
+    violation_10:
+      wrong_output: |
+        {
+          "redirects": [
+            { "source": "https://www.example.jp/:path*", "destination": "https://www.example.jp/:path*", "permanent": true }
+          ]
+        }
+      problem: "自己リダイレクト（同一プロトコル・ホストへのリダイレクト）"
+      severity: "CRITICAL"
+      note: "リダイレクトループを引き起こす。最終形から最終形へのリダイレクトは作成禁止"
     
     correct_output: |
       ✅ 正しい2段出力：
@@ -616,16 +1232,110 @@ troubleshooting:
     note: |
       重複は冗長で、JSONのサイズが大きくなるだけです。
       Vercelは最初にマッチしたリダイレクトを使用します。
+  
+  issue_7:
+    problem: "ドメインに大文字が混入している"
+    symptom: |
+      - domain_config に "Example.JP" や "WWW.Example.JP" などが設定されている
+      - 生成されたJSONに大文字のドメインが含まれている
+    
+    solution: |
+      - step_2 の domain_normalization を確認
+      - 小文字化が実行されているか確認
+      - 正規化後の値がテンプレートに使用されているか確認
+    
+    example_normalization: |
+      入力:
+        APEX_DOMAIN: "Example.JP"
+        WWW_DOMAIN: "WWW.Example.JP"
+      
+      正規化後:
+        APEX_DOMAIN: "example.jp"
+        WWW_DOMAIN: "www.example.jp"
+      
+      生成されるJSON:
+      {
+        "redirects": [
+          {
+            "source": "/:path*",
+            "has": [{ "type": "host", "value": "example.jp" }],
+            ...
+          }
+        ]
+      }
+  
+  issue_8:
+    problem: "日本語ドメイン（IDN）が正しく処理されない"
+    symptom: |
+      - domain_config に "日本語.jp" などが設定されている
+      - リダイレクトが機能しない
+    
+    solution: |
+      - step_2 の IDN正規化を確認
+      - Punycodeに変換されているか確認（xn-- で始まる形式）
+      - has: [{ type: host, value: ... }] に Punycode を使用
+    
+    example_idn_normalization: |
+      入力:
+        APEX_DOMAIN: "日本語.jp"
+        WWW_DOMAIN: "www.日本語.jp"
+      
+      正規化後（Punycode）:
+        APEX_DOMAIN: "xn--wgv71a119e.jp"
+        WWW_DOMAIN: "www.xn--wgv71a119e.jp"
+    
+    note: |
+      IDN（国際化ドメイン名）は、必ずPunycodeに変換してから使用してください。
+      そのままの形式（日本語等）では、Vercelが正しく処理できません。
+  
+  issue_9:
+    problem: "自己リダイレクトループが発生する"
+    symptom: |
+      - https://{WWW_DOMAIN} にアクセスすると無限リダイレクト
+      - ブラウザに「リダイレクトが多すぎます」エラー
+    
+    solution: |
+      - rule_4 の self_redirect_prevention を確認
+      - https://{WWW_DOMAIN} → https://{WWW_DOMAIN} のリダイレクトを削除
+      - 許可されるのは http://{WWW_DOMAIN} → https://{WWW_DOMAIN} のみ
+    
+    allowed_vs_forbidden: |
+      ✅ 許可:
+      - http://example.jp → https://www.example.jp（異なるプロトコル・ホスト）
+      - https://example.jp → https://www.example.jp（異なるホスト）
+      - http://www.example.jp → https://www.example.jp（異なるプロトコル）
+      
+      ❌ 禁止:
+      - https://www.example.jp → https://www.example.jp（自己リダイレクト）
+    
+    note: |
+      最終形（https://{WWW_DOMAIN}）から最終形へのリダイレクトは
+      リダイレクトループを引き起こします。絶対に含めないでください。
 
 # ==============================================================================
 # バージョン履歴
 # ==============================================================================
 
 changelog:
+  v1.1:
+    date: "2025-11-03"
+    changes:
+      - "ドメイン正規化ルールを追加（大文字、IDN、プロトコル、末尾スラッシュ）"
+      - "自己リダイレクト防止ルールを追加（rule_4.self_redirect_prevention）"
+      - "SEO情報生成機能を追加（step_5、about.yaml連携）"
+      - "SEO情報生成にfallback機能を追加（about.yaml → コードファイル → 既存metadata）"
+      - "リダイレクトの目的文を追加（🎯 すべてのアクセスを正規URLに統一）"
+      - "トラブルシューティングに issue_7, issue_8, issue_9 を追加"
+      - "違反例に violation_7-10 を追加"
+      - "使用例に example_2 を追加（about.yamlなしのfallback例）"
+  
   v1.0:
     date: "2025-11-03"
     changes:
       - "初版リリース"
       - "フォントワークフローと同じパターンで実装"
       - "トリガー条件、ワークフロー、トラブルシューティングを定義"
+      - "2段出力（JSON → 完了報告）を実装"
+      - "トリガーを「ドメイン接続」のみに絞り込み（誤発火防止）"
+      - "action_keywords から「して」「お願い」を除外（安全性向上）"
 

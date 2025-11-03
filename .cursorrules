@@ -73,6 +73,7 @@
 - ✅ ドメイン設定（APEX_DOMAIN、WWW_DOMAIN）
 - ✅ vercel.json 生成テンプレート（2パターン）
 - ✅ 出力フォーマットの厳格なルール
+- ✅ SEO情報生成（about.yamlから生成、オプショナル）
 - ✅ トラブルシューティング
 
 ### ルール2: 出力フォーマットの厳守（🚨 CRITICAL）
@@ -98,20 +99,29 @@
    - ❌ 違反: 「以下のようなvercel.jsonを作成します」+ JSON
    - ✅ 正解: いきなりJSONから始める
 
-3. **2段階で出力（JSON → 完了報告）**
+3. **3段階で出力（JSON → 完了報告 → SEO情報生成）**
    - ✅ 1段目: JSONのみ出力
    - ✅ 空行を1つ挿入
    - ✅ 2段目: 完了報告を出力
+   - ✅ 3段目: SEO情報を生成（オプショナル、about.yamlがある場合のみ）
 
 4. **YAMLの output_templates から選択**
    - pattern_A（URL直指定版）
    - pattern_B（host条件版・推奨）
    - いずれかを選択し、プレースホルダーを実際の値に置換
 
-5. **バリデーション（必須チェック）**
+5. **ドメイン正規化（必須処理）**
+   - 🚨 APEX_DOMAIN と WWW_DOMAIN を必ず正規化してから使用
+   - プロトコル除去（`http://`, `https://`）
+   - 末尾スラッシュ除去（`/`）
+   - 全て小文字化（`Example.JP` → `example.jp`）
+   - IDN（日本語ドメイン等）はPunycodeに変換（`日本語.jp` → `xn--wgv71a119e.jp`）
+
+6. **バリデーション（必須チェック）**
    - 🚨 JSONルートには `redirects` キーのみ含める
    - 🚨 `headers`, `rewrites`, `env` などの余計なキーは含めない
    - 🚨 重複する `source` を持つリダイレクトを含めない
+   - 🚨 自己リダイレクトを含めない（`https://{WWW_DOMAIN}` → `https://{WWW_DOMAIN}` は禁止）
    - 各リダイレクトの `source` は一意であること
 
 ### ルール3: トリガー条件の確認
@@ -140,11 +150,30 @@
    - ドメイン設定（APEX_DOMAIN、WWW_DOMAIN）
    - 出力テンプレート（2パターン）
    - バリデーションルール
+   - SEO情報表示設定（オプショナル）
    - トラブルシューティング（リダイレクトループ、*.vercel.app問題）
 
 2. **Vercel公式ドキュメント**
    - カスタムドメイン設定: https://vercel.com/docs/concepts/projects/custom-domains
    - リダイレクト設定: https://vercel.com/docs/concepts/projects/project-configuration#redirects
+
+#### SEO情報の生成について：
+ドメイン接続時に、納品物として最適化されたSEO情報（keywords, title, description）を生成します。
+
+**情報源の優先順位：**
+1. about.yaml（サイト構成シート）← 最優先
+2. page.tsx, components, layout.tsx（コードファイル）← fallback
+3. 既存 metadata（最小限のfallback）← 最後の手段
+
+**生成内容：**
+- 市場分析を行い、検索キーワード（5語）を選定
+- タイトルタグ（28-32字、CTA含む）を生成
+- メタディスクリプション（90-120字）を生成
+- 文字数カウント付きで表示
+- 実装方法（metadata オブジェクト）も併記
+
+**スキップ条件：**
+- すべての情報源が読み取れない場合のみスキップ（エラーなし）
 
 # ==============================================================================
 # 📐 レスポンシブ設計原則
