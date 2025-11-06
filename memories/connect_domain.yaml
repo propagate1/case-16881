@@ -7,7 +7,7 @@
 # ⚠️ YAML外のことは実行・追加・推測しないこと
 #
 # Priority: CRITICAL
-# Version: 1.2
+# Version: 1.4
 # Last Updated: 2025-11-04
 #
 # ==============================================================================
@@ -16,7 +16,7 @@ metadata:
   priority: CRITICAL
   enforcement: MANDATORY
   violation_action: STOP_AND_FOLLOW_YAML
-  version: "1.2"
+  version: "1.4"
   
 # ------------------------------------------------------------------------------
 # トリガー条件（これらのキーワードが出たら必ずこのワークフローを実行）
@@ -168,17 +168,21 @@ domain_config:
 
 output_templates:
   
-  # パターンA: URL直指定版（シンプル）
+  # パターンA: URL直指定版（非推奨・冗長）
+  # 注意: Vercelは自動的にHTTPからHTTPSへリダイレクトするため、
+  # このパターンは冗長です。pattern_B（host条件版）を推奨。
   pattern_A: |
     {
       "redirects": [
         { "source": "http://{APEX_DOMAIN}/:path*", "destination": "https://{WWW_DOMAIN}/:path*", "permanent": true },
-        { "source": "https://{APEX_DOMAIN}/:path*", "destination": "https://{WWW_DOMAIN}/:path*", "permanent": true },
-        { "source": "http://{WWW_DOMAIN}/:path*", "destination": "https://{WWW_DOMAIN}/:path*", "permanent": true }
+        { "source": "https://{APEX_DOMAIN}/:path*", "destination": "https://{WWW_DOMAIN}/:path*", "permanent": true }
       ]
     }
   
-  # パターンB: host条件版（推奨・*.vercel.appに影響しない）
+  # pattern_A の簡略版（Vercelの自動HTTPS変換を考慮）:
+  # wwwなし → wwwあり のみで十分（HTTPSはVercelが自動変換）
+  
+  # パターンB: host条件版（推奨・Vercelの自動HTTPS変換を活用）
   pattern_B: |
     {
       "redirects": [
@@ -187,15 +191,13 @@ output_templates:
           "has": [{ "type": "host", "value": "{APEX_DOMAIN}" }],
           "destination": "https://{WWW_DOMAIN}/:path*",
           "permanent": true
-        },
-        {
-          "source": "/:path*",
-          "has": [{ "type": "host", "value": "{WWW_DOMAIN}" }],
-          "destination": "https://{WWW_DOMAIN}/:path*",
-          "permanent": true
         }
       ]
     }
+  
+  # 注意: Vercelは自動的にHTTPからHTTPSへリダイレクトするため、
+  # {WWW_DOMAIN} → https://{WWW_DOMAIN} のリダイレクトは不要です。
+  # 必要なのは「wwwなし → wwwあり」のリダイレクトのみ。
 
 # ------------------------------------------------------------------------------
 # 出力ルール（🚨 CRITICAL - 絶対遵守）
@@ -505,12 +507,6 @@ workflow:
           {
             "source": "/:path*",
             "has": [{ "type": "host", "value": "example.jp" }],
-            "destination": "https://www.example.jp/:path*",
-            "permanent": true
-          },
-          {
-            "source": "/:path*",
-            "has": [{ "type": "host", "value": "www.example.jp" }],
             "destination": "https://www.example.jp/:path*",
             "permanent": true
           }
@@ -900,8 +896,8 @@ workflow:
     condition: "step_5 でSEO情報が生成された場合のみ実行"
     
     description: |
-      step_5 で生成した SEO情報（title, description, keywords）を
-      app/layout.tsx に自動的に書き込む。
+      step_5 で生成した SEO情報（title, description, keywords）と
+      canonical link（正規URL）を app/layout.tsx に自動的に書き込む。
     
     process:
       step_1:
@@ -932,6 +928,9 @@ workflow:
                 title: "{step_5で生成したtitle}",
                 description: "{step_5で生成したdescription}",
                 keywords: [{step_5で生成したkeywords}],
+                alternates: {
+                  canonical: "https://{WWW_DOMAIN}",
+                },
               };
         
         case_2:
@@ -948,6 +947,9 @@ workflow:
                 title: "{step_5で生成したtitle}",
                 description: "{step_5で生成したdescription}",
                 keywords: [{step_5で生成したkeywords}],
+                alternates: {
+                  canonical: "https://{WWW_DOMAIN}",
+                },
               };
               
           
@@ -968,6 +970,10 @@ workflow:
           - title: {title}（{文字数} 文字）
           - description: {description}（{文字数} 文字）
           - keywords: [{keywords}]
+          - canonical: https://{WWW_DOMAIN} （正規URL）
+          
+          💡 canonical link について:
+          正規URLを検索エンジンに伝えることで、重複コンテンツの問題を防ぎ、SEO評価を集約します。
           
           💡 Google提出ワークフローで openGraph, twitter も追加できます。
     
@@ -995,12 +1001,6 @@ usage_examples:
             "has": [{ "type": "host", "value": "example.jp" }],
             "destination": "https://www.example.jp/:path*",
             "permanent": true
-          },
-          {
-            "source": "/:path*",
-            "has": [{ "type": "host", "value": "www.example.jp" }],
-            "destination": "https://www.example.jp/:path*",
-            "permanent": true
           }
         ]
       }
@@ -1016,10 +1016,13 @@ usage_examples:
       4. https://example.jp と https://www.example.jp でアクセス確認
       
       💡 リダイレクト設定:
-      - http://example.jp → https://www.example.jp
-      - https://example.jp → https://www.example.jp
-      - http://www.example.jp → https://www.example.jp
+      - example.jp → https://www.example.jp （Vercelが自動的にHTTPSに変換）
       - *.vercel.app は影響を受けません
+      
+      💡 Vercel の自動HTTPS変換について:
+      - HTTP → HTTPS はVercelが自動的に処理します
+      - 明示的なリダイレクト設定は不要です
+      - 必要なのは「wwwなし → wwwあり」のリダイレクトのみです
       
       📊 生成したSEO情報:
       
@@ -1043,6 +1046,9 @@ usage_examples:
         title: "株式会社メディアプルーフ - 東京の校閲サービス | メディアの正しさを担保",
         description: "株式会社メディアプルーフは、ニュース番組・広告・公共案件の校閲に特化したサービスを提供。誤字脱字のチェックに留まらず、ウラ取り・修正案の提示まで対応。東京都新宿区を拠点に、高度な校閲で制作物の品質と信頼を守ります。お気軽にお問い合わせください。",
         keywords: ["校閲サービス 東京", "ニュース番組 校閲", "メディア 校正", "広告制作 校閲", "公共案件 校閲"],
+        alternates: {
+          canonical: "https://www.example.jp",
+        },
       }
       
       ⚠️ 注意: keywords メタタグは廃止されましたが、記録として残しています。
@@ -1053,6 +1059,10 @@ usage_examples:
       - title: 株式会社メディアプルーフ - 東京の校閲サービス | メディアの正しさを担保（32 文字）
       - description: 株式会社メディアプルーフは...（120 文字）
       - keywords: ["校閲サービス 東京", "ニュース番組 校閲", ...]
+      - canonical: https://www.example.jp （正規URL）
+      
+      💡 canonical link について:
+      正規URLを検索エンジンに伝えることで、重複コンテンツの問題を防ぎ、SEO評価を集約します。
       
       💡 Google提出ワークフローで openGraph, twitter も追加できます。
     
@@ -1086,12 +1096,6 @@ usage_examples:
           {
             "source": "/:path*",
             "has": [{ "type": "host", "value": "example.jp" }],
-            "destination": "https://www.example.jp/:path*",
-            "permanent": true
-          },
-          {
-            "source": "/:path*",
-            "has": [{ "type": "host", "value": "www.example.jp" }],
             "destination": "https://www.example.jp/:path*",
             "permanent": true
           }
@@ -1129,6 +1133,10 @@ usage_examples:
       - title: 株式会社メディアプルーフ - 東京の校閲サービス | メディアの正しさを担保（32 文字）
       - description: ...（110 文字）
       - keywords: ["校閲サービス 東京", ...]
+      - canonical: https://www.example.jp （正規URL）
+      
+      💡 canonical link について:
+      正規URLを検索エンジンに伝えることで、重複コンテンツの問題を防ぎ、SEO評価を集約します。
       
       💡 Google提出ワークフローで openGraph, twitter も追加できます。
     
@@ -1434,6 +1442,25 @@ troubleshooting:
 # ==============================================================================
 
 changelog:
+  v1.4:
+    date: "2025-11-04"
+    changes:
+      - "pattern_B: シンプル化（リダイレクト1つのみ、Vercelの自動HTTPS変換を活用）"
+      - "wwwなし → wwwあり のリダイレクトのみ（HTTPSはVercel自動変換）"
+      - "www.example.jp → https://www.example.jp のリダイレクトを削除（冗長、Vercel自動変換と競合）"
+      - "pattern_A: http://{WWW_DOMAIN} → https://{WWW_DOMAIN} を削除（Vercel自動変換のため不要）"
+      - "完了報告にVercelの自動HTTPS変換について説明を追加"
+      - "ユーザー実証済みの正しい設定に修正"
+  
+  v1.3:
+    date: "2025-11-04"
+    changes:
+      - "step_5b: canonical link（正規URL）を metadata に追加"
+      - "alternates.canonical を自動設定（https://{WWW_DOMAIN}）"
+      - "重複コンテンツ問題を防ぎ、SEO評価を正規URLに集約"
+      - "canonical について説明を追加"
+      - "使用例に canonical を追加"
+  
   v1.2:
     date: "2025-11-04"
     changes:

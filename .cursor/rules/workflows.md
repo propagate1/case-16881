@@ -98,9 +98,10 @@ This file contains:
    - ✅ No user copy-paste required
 
 2. **Select from YAML's output_templates**
-   - pattern_A (URL direct specification)
-   - pattern_B (host condition version, recommended)
+   - pattern_A (URL direct specification, not recommended)
+   - pattern_B (host condition version, **recommended**, leverages Vercel's auto HTTPS)
    - Choose one and replace placeholders with actual values
+   - 💡 pattern_B uses only 1 redirect (wwwなし → wwwあり) because Vercel automatically converts HTTP to HTTPS
 
 3. **Completion report + SEO info generation + Auto implementation**
    - ✅ Stage 1: Create vercel.json using write tool
@@ -159,12 +160,19 @@ When connecting domain, generate optimized SEO information (keywords, title, des
 - Automatically write generated metadata to app/layout.tsx
 - Replace existing metadata or create new
 - Automatically add import { Metadata } from 'next' (if needed)
+- Automatically add canonical link (正規URL)
+
+**Canonical Link:**
+- Set alternates.canonical to https://{WWW_DOMAIN}
+- Prevents duplicate content issues
+- Consolidates SEO evaluation to the canonical URL
+- Example: canonical: "https://www.example.jp"
 
 **Skip Condition:**
 - Skip only if all information sources are unreadable (no error)
 
 **Integration with Google Submission:**
-- Domain connection: Set title, description, keywords
+- Domain connection: Set title, description, keywords, canonical
 - Google submission: Add openGraph, twitter (utilize existing metadata)
 
 ---

@@ -227,9 +227,10 @@ workflow_2_metadata:
   information_sources:
     priority_1:
       name: "既存 metadata（layout.tsx）"
-      action: "title, description, keywords すべて存在する場合は再利用"
+      action: "title, description, keywords, canonical すべて存在する場合は再利用"
       note: "ドメイン接続で設定済みの可能性がある"
       reuse: "既存の値をそのまま使用し、openGraph, twitter のみ新規生成"
+      canonical_handling: "既存の canonical があれば保持、なければ新規追加しない（ドメイン接続で設定済みのはず）"
     
     priority_2:
       name: "about.yaml（サイト構成シート）"
@@ -310,6 +311,7 @@ workflow_2_metadata:
       - title: {title}（{文字数} 文字）
       - description: {description}（{文字数} 文字）
       - keywords: [{keywords}]
+      - canonical: {canonical_url}（既存を保持、またはドメイン接続で設定済み）
       
       【SNS対応】
       - openGraph: 設定完了
