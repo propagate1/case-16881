@@ -66,12 +66,7 @@ This file contains:
 
 ## 🌐 Domain Connection Workflow
 
-### Triggers
-- ドメイン接続
-
-⚠️ Note: To prevent false triggers, only "ドメイン接続" triggers this workflow.
-- ❌ Words like "vercel.json" or "redirect" alone won't trigger
-- ✅ "ドメイン接続" + action keywords (e.g., "作成して") will trigger
+**実行方法:** `/domain-connect` コマンドを使用してください
 
 ### Context Files
 - `memories/connect_domain.yaml`
@@ -79,7 +74,7 @@ This file contains:
 ### Critical Rules
 
 #### Rule 1: Always Load Workflow File
-When "**ドメイン接続**" keyword is detected, **always read `memories/connect_domain.yaml` first**.
+When executing domain connection workflow, **always read `memories/connect_domain.yaml` first**.
 
 This file contains:
 - ✅ Domain settings (APEX_DOMAIN, WWW_DOMAIN)
@@ -123,25 +118,6 @@ This file contains:
    - 🚨 Do not include self-redirects (`https://{WWW_DOMAIN}` → `https://{WWW_DOMAIN}` is forbidden)
    - Each redirect's `source` must be unique
 
-#### Rule 3: Trigger Condition Check
-Execute only when **all** of the following conditions are met:
-
-✅ Execute when:
-1. User message contains "**ドメイン接続**"
-2. User message contains action keywords ("作成して", "生成して", "出力して", "書いて", "作って", etc.)
-   ⚠️ Note: Generic words like "して", "お願い" are excluded to prevent false triggers
-3. Exclude keywords ("必要ですか", "ありますか", "方法", "教えて", "説明", "どう", "？", etc.) are NOT present
-
-❌ Do not execute:
-- "ドメイン接続の方法は？" → Exclude keywords: "方法", "？"
-- "ドメイン接続は必要ですか？" → Exclude keywords: "必要ですか", "？"
-- "ドメイン接続について教えて" → Exclude keywords: "教えて"
-- "ドメイン接続について説明して" → Exclude keywords: "説明"
-- "ドメイン接続をどうして" → Exclude keywords: "どう"
-- "ドメイン接続をお願い" → No action keywords ("お願い" is too generic)
-- "vercel.jsonを作成して" → No main keyword "ドメイン接続"
-- "リダイレクト設定を作成して" → No main keyword "ドメイン接続"
-
 ### SEO Information Generation and Auto Implementation
 When connecting domain, generate optimized SEO information (keywords, title, description) and automatically write to app/layout.tsx.
 
@@ -179,8 +155,7 @@ When connecting domain, generate optimized SEO information (keywords, title, des
 
 ## 🔍 Google Submission Workflow
 
-### Triggers
-- Google提出
+**実行方法:** `/google-submit` コマンドを使用してください
 
 ### Context Files
 - `memories/submit_google.yaml`
@@ -188,7 +163,7 @@ When connecting domain, generate optimized SEO information (keywords, title, des
 ### Critical Rules
 
 #### Rule 1: Always Load Workflow File
-When "**Google提出**" keyword is detected, **always read `memories/submit_google.yaml`**.
+When executing Google submission workflow, **always read `memories/submit_google.yaml`**.
 
 This file contains 5 workflows:
 1. alt tag setup
@@ -224,48 +199,11 @@ Execute each workflow in sequence without skipping.
    - Do NOT skip steps marked as skip_allowed: false
    - Skipping mandatory steps is a workflow violation
 
-### Trigger Conditions
-Execute only when all of the following conditions are met:
-1. User message contains "Google提出"
-2. User message contains action keywords ("して", "お願い", etc.)
-3. Exclude keywords ("必要ですか", "方法", "？", etc.) are NOT present
-
-### Execution Example
-
-**User:** "Google提出して"
-
-**AI Action:**
-```
-[1/5] altタグを設定します...
-✅ 画像に alt 属性を追加しました
-
-[2/5] metadata を設定します...
-✅ app/layout.tsx に metadata を設定しました
-
-[3/5] sitemap.ts を作成します...
-✅ app/sitemap.ts を作成しました
-
-[4/5] robots.txt を作成します...
-✅ public/robots.txt を作成しました
-
-[5/5] URLスラッグを最適化します...
-✅ URLスラッグを最適化しました
-
-🎉 Google提出の準備が完了しました！
-```
-
 ---
 
 ## 📝 Contact Form Implementation Workflow
 
-### Triggers
-- フォーム実装
-
-⚠️ Note: To prevent false triggers, only "フォーム実装" triggers this workflow.
-- ❌ "お問い合わせフォームを作成して" → Normal form creation (won't trigger)
-- ✅ "フォーム実装して" → Universal Form API implementation (will trigger)
-
-Reason: To distinguish between design-only form creation and full Universal Form API implementation.
+**実行方法:** `/form-implement` コマンドを使用してください
 
 ### Context Files
 - `memories/form_workflow.yaml`
@@ -275,7 +213,7 @@ Reason: To distinguish between design-only form creation and full Universal Form
 ### Critical Rules
 
 #### Rule 1: Always Load Workflow File
-When contact form keywords are detected, **always read `memories/form_workflow.yaml` first**.
+When executing contact form implementation workflow, **always read `memories/form_workflow.yaml` first**.
 
 This file contains:
 - ✅ 5-step workflow for form implementation
