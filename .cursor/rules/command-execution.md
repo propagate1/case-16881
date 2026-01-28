@@ -19,6 +19,8 @@
 /font-setup
 /domain-connect
 /google-submit
+/design-recommend HomeHero
+/design-recommend app/components/home/HomeFeatures.tsx
 ```
 
 ---
@@ -59,6 +61,7 @@ image-fetch-list を実行してください
 | `/google-submit` | Google登録 | `/google-submit` のみ |
 | `/form-implement` | フォーム実装 | `/form-implement` のみ |
 | `/form-check-config` | フォーム設定確認（エラー診断） | `/form-check-config` のみ |
+| `/design-recommend [target]` | デザイン推奨・統合 | `/design-recommend` + ターゲット指定 |
 
 ---
 

@@ -558,6 +558,235 @@ All generated code MUST include ESLint suppressions to avoid build errors:
 
 ---
 
+## 🎨 Design Recommend Workflow
+
+**実行方法:** `/design-recommend [target-component]` コマンドを使用してください
+
+### Context Files
+- `memories/design_recommend_workflow.yaml` （v1.0.0）
+
+### Purpose
+
+デザインストックからリファレンスコンポーネントを選定し、ターゲットコンポーネントに統合するワークフロー。
+プロジェクトのビジュアルスタイルを維持しながら、リファレンスのレイアウト原則やスタイルを適用します。
+
+### Commands
+- **`/design-recommend [target]`** - デザイン推奨ワークフローを実行
+
+### キーワードトリガー（コンポーネントストック適用）
+
+「**{参考} を {ターゲット} に適用してください**」のように依頼された場合も、同様の「既存情報を保持しつつ参考デザインを適応する」ルールを適用する。
+
+- **参照ルール**: `.cursor/rules/24-design-apply-stock.mdc`
+- **例**: 「Feature100 を HomeFeatures に適用してください」「About3000 を AboutMission に適用」
+- 参考＝適用元（デザインストック）、ターゲット＝適用先（既存コンポーネント）。ターゲットのコンテンツは保持し、レイアウト・スタイルを参考に統一して適応する。
+
+### Usage Examples
+```
+/design-recommend HomeHero
+/design-recommend app/components/home/HomeFeatures.tsx
+/design-recommend AboutMission
+/design-recommend ContactForm
+```
+
+### Workflow Overview (6 Steps)
+
+#### Step 0: コマンド解析
+- ターゲットコンポーネント名またはパスを抽出
+- 存在確認（app/components/配下を検索）
+
+#### Step 1: インデックスファイル取得
+- デザインストックのインデックスをダウンロード
+- `curl -o scripts/_index.json "https://gist.githubusercontent.com/propagate1/5567ced2819730057503417bd35ee7cc/raw/_index.json"`
+
+#### Step 2: ターゲット分析
+- ターゲットコンポーネントのソースコードを読み込み
+- セクションタイプ、レイアウト、コンテンツ構成を分析
+- 同じページの他セクションも確認してプロジェクト全体のスタイルを把握
+
+#### Step 3: 候補絞り込み（5-6件）
+- インデックスから最適な候補を選出
+- category、tags.style、tags.industry、designAnalysisを考慮
+
+#### Step 4: 対話による最終選定
+- 上位2件を提示し、特徴を説明
+- ユーザーに質問して意図を明確化
+- 最終1件を決定
+
+#### Step 5: リファレンス取得
+- shadcnコマンドでコンポーネントを取得
+- `npx shadcn@latest add "https://gist.githubusercontent.com/propagate1/5567ced2819730057503417bd35ee7cc/raw/{id}.json"`
+- 🚨 **idは小文字を使用**: about3000, feature100, hero5001（PascalCaseではない）
+
+#### Step 6: 統合実装 (🚨 CRITICAL)
+- リファレンスデザインをターゲットに統合
+- **単純なコンテンツ入れ替えではない**
+- プロジェクトのビジュアルスタイルを維持しながらレイアウト原則を適用
+
+### Critical Rules
+
+#### Rule 1: Always Load Workflow File
+When executing design recommend workflow, **always read `memories/design_recommend_workflow.yaml` first**.
+
+This file contains:
+- ✅ 6-step detailed workflow
+- ✅ Category mapping (Hero, About, Feature, CTA, etc.)
+- ✅ Style mapping (やさしい・ナチュラル, 上品・高級感, etc.)
+- ✅ Integration principles (preserve, adopt, adapt)
+- ✅ Troubleshooting
+
+#### Rule 2: Never Skip User Interaction (Step 4)
+❌ Violation:
+  User: "/design-recommend HomeHero"
+  AI: "About3000を適用します" (no choices)
+
+✅ Correct:
+  User: "/design-recommend HomeHero"
+  AI: "候補を5件選出しました。上位2件について..."
+  AI: "どちらのスタイルが好みですか？"
+
+#### Rule 3: Integration Principles (🚨 CRITICAL)
+
+**Preserve (保持):**
+- ターゲットの既存コンテンツ（テキスト、画像パス等）
+- プロジェクト全体のカラースキーム
+- ワークスペースルールのフォントスケール
+- 既存のレスポンシブブレークポイント
+
+**Adopt (採用):**
+- リファレンスのレイアウトパターン（grid/flex構造）
+- リファレンスの余白・間隔の比率
+- リファレンスの視覚的階層構造
+
+**Adapt (適応):**
+- 色をプロジェクトのカラーパレットに変換
+- フォントサイズをワークスペースルールに準拠
+- ボタンスタイルをプロジェクト共通に統一
+
+**Forbidden (禁止):**
+- ❌ ターゲットのコンテンツを削除してリファレンスのダミーテキストに置換
+- ❌ プロジェクトのカラースキームを無視
+- ❌ ワークスペースルールのフォントスケールを無視
+- ❌ global.cssの編集
+- ❌ 新しいCSSファイルの作成
+
+#### Rule 4: Index Structure Understanding
+
+インデックスファイルの構造:
+```json
+{
+  "version": "1.0",
+  "components": [
+    {
+      "id": "about3000",
+      "name": "About3000",
+      "category": "About",
+      "fileName": "About3000.tsx",
+      "tags": {
+        "main": ["About"],
+        "style": ["やさしい・ナチュラル"],
+        "industry": ["福祉・介護"],
+        "pageType": ["CP"],
+        "plan": ["BASIC"]
+      },
+      "designAnalysis": {
+        "visualSummary": "...",
+        "colorMood": { "palette": "...", "feeling": "..." },
+        "typography": { "style": "...", "hierarchy": "...", "personality": "..." },
+        "layout": { "pattern": "...", "spacing": "...", "density": "..." },
+        "integrationGuidelines": {
+          "pairsWith": ["..."],
+          "avoidWith": ["..."],
+          "keyElements": "..."
+        },
+        "distinctiveFeatures": ["..."]
+      }
+    }
+  ]
+}
+```
+
+### Category Mapping
+
+| Category | Keywords | Typical Components |
+|----------|----------|-------------------|
+| Hero | hero, メインビジュアル, ファーストビュー | HomeHero, PageHeader |
+| About | about, 私たちについて, mission | AboutMission, CompanyMission |
+| Feature | feature, 特徴, 強み, サービス | HomeFeatures, WorksServices |
+| CTA | cta, お問い合わせ, contact | CTA |
+| Works | works, 実績, 事例, gallery | HomeWorks, WorksGallery |
+| Contact | contact, form, フォーム | ContactForm |
+| Company | company, 会社, 企業情報 | CompanyProfile |
+| Staff | staff, スタッフ, チーム, greeting | HomeGreeting |
+| News | news, お知らせ, media | MediaContent |
+
+### Style Mapping
+
+| Style | Characteristics | Compatible Industries |
+|-------|----------------|----------------------|
+| やさしい・ナチュラル | 柔らかい色調, 丸みのある要素 | 福祉・介護, 教育 |
+| 上品・高級感 | 落ち着いた配色, 洗練されたタイポグラフィ | ホテル・旅館, 飲食店 |
+| カッコいい | コントラストの強い配色, ダイナミック | IT・テクノロジー, 製造業 |
+| シンプル | 最小限の装飾, クリーンなレイアウト | 全業種 |
+| 和風 | 日本的な色使い, 縦書き要素 | 旅館, 和食, 伝統工芸 |
+
+### Complete Workflow Example
+
+```
+User: /design-recommend HomeFeatures
+
+AI: [Step 1] インデックスファイルを取得しています...
+    ✅ 取得完了（150コンポーネント）
+
+AI: [Step 2] ターゲット分析中...
+    - セクションタイプ: Feature
+    - 現在のレイアウト: 3カラムグリッド
+    - プロジェクトスタイル: シンプル・モダン
+
+AI: [Step 3] 候補を選出しました（5件）:
+    1. Feature100 - シンプル・カード型
+    2. Feature200 - アイコン強調型
+    3. Feature300 - 画像+テキスト交互配置
+    4. Feature400 - 数字強調型
+    5. Feature500 - タイムライン型
+
+AI: [Step 4] 上位2件の詳細:
+    
+    **1. Feature100**
+    - レイアウト: 3カラムカード
+    - 特徴: ミニマルで読みやすい
+    
+    **2. Feature200**
+    - レイアウト: アイコン中心の4カラム
+    - 特徴: 視覚的インパクト
+    
+    質問: 現在のコンテンツ量を考えると、
+    シンプルなカード型と、アイコン強調型、
+    どちらが好みですか？
+
+User: シンプルなカード型でお願いします
+
+AI: [Step 5] feature100を取得しています...
+    コマンド: npx shadcn@latest add ".../feature100.json"
+    ✅ 取得完了
+
+AI: [Step 6] 統合を開始します...
+    
+    適用した変更:
+    - グリッド構造をFeature100のパターンに変更
+    - カード内の余白比率を調整
+    - 視覚的階層を改善
+    
+    保持した要素:
+    - 既存のテキストコンテンツ
+    - プロジェクトのカラー変数
+    - ワークスペースルールのフォントサイズ
+    
+    ✅ 統合完了
+```
+
+---
+
 ## 🖼️ Image Fetch Workflow
 
 **実行方法:** 3つのコマンドに分けて実行してください
