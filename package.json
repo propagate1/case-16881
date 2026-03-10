@@ -17,7 +17,8 @@
     "setup-fonts:cool": "npm run setup-fonts cool",
     "setup-fonts:simple": "npm run setup-fonts simple",
     "setup-fonts:pop": "npm run setup-fonts pop",
-    "setup-fonts:wa": "npm run setup-fonts wa"
+    "setup-fonts:wa": "npm run setup-fonts wa",
+    "preview:fetch": "node scripts/fetch-preview.js"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.3",

@@ -232,6 +232,24 @@ workflow:
             - ビジュアルスタイル
             - ターゲットへの適用イメージ
         
+        - action: "propose_preview"
+          description: |
+            各候補をターゲットに適用した場合のプレビューをAIが提案する:
+            - テキストで「どのように見えるか」を具体的に説明する
+            - レイアウト・配置・余白の変化をイメージしやすい形で提示する
+            - 例: 「候補1を適用した場合: 見出しが左側、画像が右側の2カラムになり、
+              モバイルでは縦積み。余白は現状よりやや広めになります」
+            - ターゲットの既存コンテンツ（見出し・本文・画像）がどう配置されるかを示す
+        
+        - action: "fetch_preview_and_share_url"
+          description: |
+            上位2件の候補をプレビュー用に取得し、URLを案内する:
+            - コマンド実行: npm run preview:fetch -- {id1} {id2} （-- の後にIDを渡す）
+            - 開発サーバー起動中であれば、以下のURLで実際のプレビューを確認できる旨を伝える:
+              - /preview/{id1}
+              - /preview/{id2}
+            - 例: 「実際のプレビューを確認: http://localhost:3000/preview/about3000 および /preview/about5001」
+        
         - action: "ask_clarification"
           description: |
             以下のような質問でユーザーの意図を明確化:
@@ -537,6 +555,10 @@ output_templates:
     - レイアウト: {layout2}
     - 特徴: {features2}
     - 適用イメージ: {image2}
+    
+    ### プレビュー提案（適用時のイメージ）
+    **候補1を適用した場合:** {preview_proposal_1}
+    **候補2を適用した場合:** {preview_proposal_2}
     
     ### 質問
     {clarification_question}
