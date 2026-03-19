@@ -1,0 +1,47 @@
+[
+  {
+    "id": "hero-led-vision",
+    "page": "/",
+    "section": "MV",
+    "path": "/images/hero-led-vision.svg",
+    "alt": "店舗前に設置されたスタンド型LEDビジョン",
+    "ratio": "16:9",
+    "promptSummary": "Blue-and-white modern storefront scene with a portable LED stand display at the entrance, vivid full-color signage, clean daylight, Japanese urban retail mood, rounded hardware, no grayscale, no diagonal layout."
+  },
+  {
+    "id": "product-lineup",
+    "page": "/",
+    "section": "サービス内容・料金",
+    "path": "/images/product-lineup.svg",
+    "alt": "3種類のレンタルビジョン製品ラインアップ",
+    "ratio": "4:3",
+    "promptSummary": "Clean product showcase of three LED vision models including two stand displays and one cube display, white studio background with blue accents, soft rounded edges, high clarity, no grayscale."
+  },
+  {
+    "id": "mobile-control",
+    "page": "/",
+    "section": "選ばれる理由",
+    "path": "/images/mobile-control.svg",
+    "alt": "スマホで表示内容を変更できる操作イメージ",
+    "ratio": "4:3",
+    "promptSummary": "Professional illustration showing a smartphone controlling digital signage content, simple dashboard UI, blue primary palette, clean B2B SaaS look, no grayscale, no dramatic effects."
+  },
+  {
+    "id": "achievement-network",
+    "page": "/",
+    "section": "導入実績・活用イメージ",
+    "path": "/images/achievement-network.svg",
+    "alt": "全国の店舗や施設でLEDビジョンが活用されるイメージ",
+    "ratio": "16:9",
+    "promptSummary": "Wide scene with multiple business types across Japan using LED signage: restaurant, clinic, school, sports venue, connected by subtle lines, modern flat illustration, blue and orange accents, no grayscale."
+  },
+  {
+    "id": "online-consultation",
+    "page": "/",
+    "section": "お問い合わせ",
+    "path": "/images/online-consultation.svg",
+    "alt": "オンライン相談で導入イメージを確認する様子",
+    "ratio": "4:3",
+    "promptSummary": "Friendly professional online consultation scene for digital signage service, laptop and LED display sample visible, white and blue clean office setting, rounded forms, no grayscale."
+  }
+]

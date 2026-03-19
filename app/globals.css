@@ -1,32 +1,54 @@
-/* ============================================================================
-   globals.css - v3.2.0 対応版（2025-10-29）
-   ============================================================================ */
+@import "tailwindcss";
 
-/* 🆕 v3.2.0: CSS変数を @import より前に配置（CRITICAL） */
-/* setup-fonts.js が自動的にこのセクションを更新します */
 :root {
-  --font-display: "Noto Sans JP", sans-serif;
-  --font-body: "Noto Sans JP", sans-serif;
+  --color-main: #2563eb;
+  --color-main-hover: #1d4ed8;
+  --color-main-active: #1e40af;
+  --color-base: #ffffff;
+  --color-surface: #f8fbff;
+  --color-accent: #f97316;
+  --color-accent-hover: #ea580c;
+  --color-accent-active: #c2410c;
+  --color-ink: #0f172a;
+  --color-muted: #334155;
+  --color-line: #cbdaf8;
+  --color-white: #ffffff;
 }
 
-@import "tailwindcss";
-@import "tw-animate-css";
-
-/* 🚨 重要: フォントCSSはここにインポートしない */
-/* layout.tsx でインポートすることで全ページに適用される */
-
 @theme {
-  /* フォントファミリーの定義 */
-  --font-family-display: var(--font-display);
-  --font-family-body: var(--font-body);
   --font-family-sans: var(--font-body);
 }
 
-/* 🆕 v3.2.0: 見出しに表示用フォントを直接適用 */
-/* setup-font-project.js が自動的に追加します */
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-display);
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading), sans-serif;
 }
 
-/* ⚠️ v3.2.0: @utility は使用しません（Tailwind CSS v4 互換性問題を回避） */
-/* 代わりに @theme と見出しタグへの直接適用を使用します */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body), sans-serif;
+  background: var(--color-base);
+  color: var(--color-ink);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #64748b;
+}

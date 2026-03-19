@@ -1,12 +1,24 @@
-import "../lib/fonts/_active.css";
-import "../lib/fonts/_vars.css";
 import type { Metadata } from "next";
-import Script from "next/script";
+import { M_PLUS_1p, Noto_Sans_JP } from "next/font/google";
+
 import "./globals.css";
 
+const headingFont = M_PLUS_1p({
+  subsets: ["latin"],
+  weight: ["500", "700", "800"],
+  variable: "--font-heading",
+});
+
+const bodyFont = Noto_Sans_JP({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  variable: "--font-body",
+});
+
 export const metadata: Metadata = {
-  title: "レンタルビジョン｜初期費用0円・置くだけ集客のLEDビジョン｜Vista Japan株式会社②",
-  description: "レンタルなのに資産になるLEDビジョン。初期費用0円、月々27,500円〜、3年後資産化。工事不要で置くだけで集客できるデジタル看板。全国対応。",
+  title: "レンタルビジョン | 初期費用0円で始めるLEDビジョン | Vista Japan株式会社②",
+  description:
+    "初期費用0円、最短1ヶ月から利用可能、36ヶ月後は資産になるレンタルビジョン。工事不要で置くだけのLEDビジョンを全国対応で案内します。",
 };
 
 export default function RootLayout({
@@ -16,17 +28,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja">
-      <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-      </head>
-      <body
-        className="antialiased font-body"
-      >
+      <body className={`${headingFont.variable} ${bodyFont.variable} antialiased`}>
         {children}
-        <Script
-          src="https://site-annotator.vercel.app/tracker.js"
-          strategy="afterInteractive"
-        />
       </body>
     </html>
   );
